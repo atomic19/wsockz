@@ -69,7 +69,7 @@ func newChatServer() *chatServer {
 	}
 	cs.serveMux.Handle("/", http.FileServer(http.Dir("./file")))
 	cs.serveMux.HandleFunc("/register", cs.registerHandler)
-	cs.serveMux.HandleFunc("/send", cs.publishHandler)
+	cs.serveMux.HandleFunc("/send", cs.sendHandler)
 	cs.serveMux.HandleFunc("/list", cs.listHandler)
 
 	return cs
@@ -151,6 +151,11 @@ func (cs *chatServer) publishHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+type SendMsgBody struct {
+	RndID   string
+	Message string
+}
+
 // publishHandler reads the request body with a limit of 8192 bytes and then publishes
 // the received message.
 func (cs *chatServer) sendHandler(w http.ResponseWriter, r *http.Request) {
@@ -158,14 +163,22 @@ func (cs *chatServer) sendHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
-	body := http.MaxBytesReader(w, r.Body, 8192)
-	msg, err := ioutil.ReadAll(body)
+
+	var sendMsg SendMsgBody
+
+	//body, _ := ioutil.ReadAll(r.Body)
+	//fmt.Println("body", body)
+
+	err := json.NewDecoder(r.Body).Decode(&sendMsg)
 	if err != nil {
-		http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+		fmt.Println("decode body error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	fmt.Println(msg)
+	fmt.Println("SEND MSG", sendMsg)
+
+	cs.allUsers[sendMsg.RndID].sendMsgsChan <- []byte(sendMsg.Message)
 
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -220,6 +233,11 @@ func (cs *chatServer) subscribe(ctx context.Context, c *websocket.Conn, sckUserP
 		select {
 		case msg := <-s.msgs:
 			err := writeTimeout(ctx, time.Second*5, c, msg)
+			if err != nil {
+				return err
+			}
+		case msg2 := <-sckUser.sendMsgsChan:
+			err := writeTimeout(ctx, time.Second*5, c, msg2)
 			if err != nil {
 				return err
 			}
