@@ -1,7 +1,5 @@
 ; (() => {
-    // expectingMessage is set to true
-    // if the user has just submitted a message
-    // and so we should scroll the next message into view when received.
+
     let expectingMessage = false
 
     function uuidv4() {
@@ -14,7 +12,7 @@
         return document.getElementById("rndID").value
     }
 
-    function dial() {
+    function connect_ws() {
         namele = document.getElementById("name")
         rndidele = document.getElementById("rndID")
 
@@ -42,28 +40,51 @@
 
         // This is where we handle messages received.
         conn.addEventListener("message", ev => {
-            debugger;
             if (typeof ev.data !== "string") {
                 console.error("unexpected message type", typeof ev.data)
                 return
             }
 
-            data = JSON.parse(ev.data)
-            if (data.type == "offer") {
-                // show and answer call ?
-            }
-            else if (data.type == "icecand") {
-                signals.connections[data.id].onIceCandidate(data)
+            if (ev.data == "refresh") {
+                getListNoTimer()
+                return;
             }
 
-            const p = appendLog(ev.data)
-            if (expectingMessage) {
-                p.scrollIntoView()
-                expectingMessage = false
+            data = JSON.parse(ev.data)
+            appendLog(`recieved-${data.type} from ${getNameFromId(data.from)}`)
+            // console.log("Recieved DATA FROM ", data.from, "WITH DATA", data)
+            if (data.type == "offer") {
+                // show and answer call ?
+                signals.setAnswer(data.from, data.offer)
+
             }
+            else if (data.type == "answer") {
+                signals.setReturnAnswer(data.from, data.answer)
+            }
+            else if (data.type == "new-ice-candidate") {
+                console.log('new-ice-candidate', data)
+                signals.handleNewICECandidateMsg(data.from, data);
+            }
+            else if (data.type == "answer-set-done-by-caller") {
+                signals.clearICECandidateBack(data.from)
+            }
+
+            // const p = appendLog(ev.data)
+            //if (expectingMessage) {
+            //   p.scrollIntoView()
+            //   expectingMessage = false
+            // }
         })
     }
-    document.getElementById("connect").onclick = dial
+    document.getElementById("connect").onclick = connect_ws
+
+    document.getElementById("name")
+        .addEventListener("keyup", function (event) {
+            if (event.keyCode === 13) {
+                event.preventDefault();
+                document.getElementById("connect").click();
+            }
+        });
 
     const messageLog = document.getElementById("message-log")
     const messageInput = document.getElementById("message-input")
@@ -93,27 +114,31 @@
 
     orig_refresh_timer = 30
     refresh_timer = orig_refresh_timer * 1000
+
+    const getListNoTimer = async () => {
+        const resp = await fetch("/list", { method: "GET" })
+        if (resp.status != 200) {
+            throw new Error(`failed to get response ${resp.status} ${resp.message}`)
+        }
+        const online = await resp.json()
+        all_online = online
+        htmlDivs = []
+
+        Object.keys(online).forEach(function (item) {
+            const e1 = `<div style="float:left; width: 100px; padding: 10px; margin: 10px; border: 1px solid black;">
+            <label style="float: left;">${online[item].Name}</label>
+            <button style="float: right" id="callAudBtn" value="${item}">call</button>
+            </div>`;
+            htmlDivs.push(e1)
+        });
+
+
+        document.getElementById("online-users").innerHTML = htmlDivs.join("")
+    }
+
     const getList = async () => {
         try {
-            const resp = await fetch("/list", { method: "GET" })
-            if (resp.status != 200) {
-                throw new Error(`failed to get response ${resp.status} ${resp.message}`)
-            }
-            const online = await resp.json()
-            all_online = online
-            htmlDivs = []
-
-            Object.keys(online).forEach(function (item) {
-                const e1 = `<div style="float:left; width: 100px">
-                <label style="float: left;">${online[item].Name}</label>
-                <button style="float: right" id="callAudBtn" value="${item}">call</button>
-                </div>`;
-                htmlDivs.push(e1)
-            });
-
-
-            document.getElementById("online-users").innerHTML = htmlDivs.join()
-
+            await getListNoTimer();
             refresh_timer = orig_refresh_timer
             setTimeout(getList, refresh_timer * 1000)
             // debugger;
@@ -135,33 +160,29 @@
         }
 
         console.dir(event.target.value);
-        callAudFn(event.target.value)
+        if (event.target.value == fromId()) {
+            appendLog("Cannot call yourself", true);
+        }
+        else {
+            callAudFn(event.target.value)
+        }
     })
 
-    // onsubmit publishes the message from the user when the form is submitted.
     callAudFn = async id => {
-        appendLog(`calling user ${all_online[id].Name}`)
+        appendLog(`calling peer - ${getNameFromId(id)}`)
 
         try {
-            const resp = await fetch("/send", {
-                headers: { "Content-Type": "application/json; charset=utf-8" },
-                method: 'POST',
-                body: JSON.stringify({
-                    RndID: id,
-                    Message: 'test-msg',
-                })
-            })
-
-            if (resp.status !== 202) {
-                throw new Error(`Unexpected HTTP Status ${resp.status} ${resp.statusText}`)
-            }
+            signals.call(id, all_online[id].Name)
         } catch (err) {
             appendLog(`Publish failed: ${err.message}`, true)
+            throw err
         }
 
     }
 
-    sendToId = async (id, data) => {
+    sendToId = async (id, data, callback = null) => {
+        data.from = fromId()
+        console.log("sending to id ", id, data.type)
         await fetch("/send", {
             headers: { "Content-Type": "application/json; charset=utf-8" },
             method: 'POST',
@@ -171,15 +192,58 @@
                 Message: JSON.stringify(data),
             })
         })
+        if (callback != null) {
+            // debugger;
+            console.log("calling callback")
+            callback()
+        }
     }
 
-    getCurrent = (id, conn) => {
+    reportError = (error) => {
+        console.log("ERROR FROM states", error)
+    }
+
+    renderConnectedUsersList = () => {
+        htmlDivs = []
+        for (id in signals.each) {
+            if (signals.each[id].sendFunc != null) {
+                const e1 = `<div style="float:left; width: 100px; padding: 10px; margin: 10px; border: 1px solid black;">
+                <label style="float: left;">${signals.each[id].name}</label>
+                <button style="float: right" id="callAudBtn" value="${id}">Chat</button>
+                </div>`;
+                htmlDivs.push(e1)
+            }
+        }
+        document.getElementById("connected-users").innerHTML = htmlDivs.join("")
+    }
+
+    wrapper_for_chat = document.getElementById("connected-users")
+    wrapper_for_chat.addEventListener('click', (event) => {
+        const isButton = event.target.nodeName === 'BUTTON';
+        if (!isButton) {
+            return;
+        }
+
+        console.dir(event.target.value);
+        if (event.target.value == fromId()) {
+            appendLog("Cannot call yourself", true);
+        }
+        else {
+            // callAudFn(event.target.value)
+            signals.active = event.target.value;
+            setCurrentActiveChat();
+        }
+    })
+
+    getCurrent = (id, conn, name) => {
         return {
             id: id,
             name: name,
             localConn: conn,
             sendChannel: null,
             recieveCallback: null,
+            sendFunc: null,
+            msgs: [],
             connCallbacks: {
                 onicecandidate: (id, event) => {
                     if (event.candidate) {
@@ -190,39 +254,51 @@
                     }
                 },
                 ontrack: (id, event) => {
+                    // debugger;
+                    console.log("ontrack")
                     document.getElementById("received_video").srcObject = event.streams[0];
                     document.getElementById("hangup-button").disabled = false;
                 },
                 onnegotiationneeded: (toId, event, localConn) => {
+                    // debugger;
+                    console.log("onnegotiationneeded")
                     localConn.createOffer().then(function (offer) {
                         return localConn.setLocalDescription(offer);
                     }).then(function () {
-                        sendToId(id, { type: 'offer', offer: localConn.localDescription })
+                        // debugger;
+                        sendToId(toId, { type: 'offer', offer: localConn.localDescription })
                     }).catch(reportError);
                 },
                 onremovetrack: (id, event) => {
-                    var stream = document.getElementById("received_video").srcObject;
-                    var trackList = stream.getTracks();
+                    // debugger;
+                    console.log('remove track')
+                    //var stream = document.getElementById("received_video").srcObject;
+                    //var trackList = stream.getTracks();
 
                     if (trackList.length == 0) {
-                        closeVideoCall();
+                        //closeVideoCall();
                     }
                 },
-                oniceconnectionstatechange: (id, event) => {
-                    switch (myPeerConnection.iceConnectionState) {
+                oniceconnectionstatechange: (id, event, localConn) => {
+                    // debugger;
+                    console.log('oniceconnectionstatechange', localConn.iceConnectionState)
+                    switch (localConn.iceConnectionState) {
                         case "closed":
+                        //console.log("oniceconnectionstatechange - closed")
                         case "failed":
-                            closeVideoCall();
+                            //console.log("oniceconnectionstatechange - failed")
+                            //closeVideoCall();
                             break;
                     }
                 },
                 onicegatheringstatechange: (id, event) => {
-                    console.log(onicegatheringstatechange, id, event)
+                    console.log('onicegatheringstatechange', id, event)
                 },
-                onsignalingstatechange: (id, event) => {
-                    switch (myPeerConnection.signalingState) {
+                onsignalingstatechange: (id, event, localConn) => {
+                    console.log("onsignalingstatechange", localConn.signalingState)
+                    switch (localConn.signalingState) {
                         case "closed":
-                            closeVideoCall();
+                            //closeVideoCall();
                             break;
                     }
                 }
@@ -235,13 +311,13 @@
         localConn.ontrack = (event) => current.connCallbacks.ontrack(id, event);
         localConn.onnegotiationneeded = (event) => current.connCallbacks.onnegotiationneeded(id, event, localConn);
         localConn.onremovetrack = (event) => current.connCallbacks.onremovetrack(id, event);
-        localConn.oniceconnectionstatechange = (event) => current.connCallbacks.oniceconnectionstatechange(id, event);
+        localConn.oniceconnectionstatechange = (event) => current.connCallbacks.oniceconnectionstatechange(id, event, localConn);
         localConn.onicegatheringstatechange = (event) => current.connCallbacks.onicegatheringstatechange(id, event);
-        localConn.onsignalingstatechange = (event) => current.connCallbacks.onsignalingstatechange(id, event);
+        localConn.onsignalingstatechange = (event) => current.connCallbacks.onsignalingstatechange(id, event, localConn);
     }
 
     createAndSetDataChannelCallbacks = (id, current, localConn) => {
-        current.sendChannel = current.localConn.createDataChannel('sendDataChannel');
+        sendChannel = current.sendChannel = current.localConn.createDataChannel('sendDataChannel');
 
         sendChannel.onopen = onSendChannelStateChange;
         sendChannel.onclose = onSendChannelStateChange;
@@ -258,22 +334,32 @@
         }
 
         function onReceiveMessageCallback(event) {
-            console.log('Received Message');
-            dataChannelReceive.value = event.data;
+            console.log('Received Message', event.data);
+            // dataChannelReceive.value = event.data;
+            if (current.recieveCallback != null) {
+                current.recieveCallback(event);
+            }
+            current.msgs.push({ id: id, value: event.data })
+            if (signals.active == id) {
+                setCurrentActiveChat();
+            }
         }
 
         function onSendChannelStateChange() {
             const readyState = sendChannel.readyState;
             console.log('Send channel state is: ' + readyState);
             if (readyState === 'open') {
-                dataChannelSend.disabled = false;
-                dataChannelSend.focus();
-                sendButton.disabled = false;
-                closeButton.disabled = false;
+                appendLog(`peer - ${getNameFromId(id)} - connected`, true)
+                current.sendFunc = (msg) => { current.sendChannel.send(msg); }
+                renderConnectedUsersList();
+                signals.active = id;
+                setCurrentActiveChat()
             } else {
-                dataChannelSend.disabled = true;
-                sendButton.disabled = true;
-                closeButton.disabled = true;
+                appendLog(`peer - ${getNameFromId(id)} - disconnected`, true)
+                current.sendFunc = null;
+                renderConnectedUsersList();
+                signals.active = null;
+                setCurrentActiveChat()
             }
         }
 
@@ -290,49 +376,168 @@
         return localConn
     }
 
+    getNameFromId = (id) => {
+        return all_online[id].Name
+    }
+
+    setCurrentActiveChat = () => {
+        wrapper_for_chat = document.getElementById("wrapper-for-chat")
+        if (signals.active == null) {
+            wrapper_for_chat.innerHTML = null;
+        }
+        else {
+            msgsHtmls = []
+            self_id = fromId()
+            to_id = signals.active
+            document.getElementById("chat-with").innerText = `chat with ${getNameFromId(to_id)}`
+            for (var msg of signals.each[signals.active].msgs) {
+                if (msg.id == self_id) {
+                    msgsHtmls.push(`
+                    <div style="float: left; width: 100%; text-align: right;">
+                        <label>${msg.value}</label>
+                    </div>
+                    `)
+                }
+                else {
+                    msgsHtmls.push(`
+                    <div style="float: left; width: 100%; text-align: left;">
+                        <label>${msg.value}</label>
+                    </div>
+                    `)
+                }
+            }
+            all_chats = msgsHtmls.join('')
+            mainWrapper = `
+            <div style="float: right; height: 500px; overflow: scroll; width: 350px">
+                <div style="float: left; width: 100%; text-align: left;">
+                    <label>other user messages appear here</label>
+                </div>
+                <div style="float: left; width: 100%; text-align: right;">
+                    <label>your messages appear here</label>
+                </div>
+                ${all_chats}
+            </div>
+            <div style="float: right; width: 350px">
+                <input id="send-text-to-peer" style="width: 100%" placeholder="type and press return key to send"/>
+            </div>
+            `
+            wrapper_for_chat.innerHTML = mainWrapper
+            
+            document.getElementById("send-text-to-peer").addEventListener("keyup", function (event) {
+                if (event.keyCode === 13) {
+                    event.preventDefault();
+                    if (signals.each[to_id].sendFunc != null) {
+                        msg = event.target.value
+                        signals.each[to_id].msgs.push({ id: fromId(), value: msg })
+                        signals.each[to_id].sendFunc(msg)
+                        event.target.value = "";
+                        setCurrentActiveChat();
+                    }
+                }
+            });
+        }
+    }
+
     signals = {
+        active: null,
+        backup_ice_can: {},
         each: {},
         call: (id, name) => {
+            // debugger;
             if (signals.each[id] != null) {
                 return;
             }
 
             localConn = createRTCPeer()
 
-            signals.each[id] = getCurrent(id, localConn);
+            current = signals.each[id] = getCurrent(id, localConn, getNameFromId(id));
             setConnCallbacks(id, current, localConn);
 
             createAndSetDataChannelCallbacks(id, current, localConn)
         },
 
         setAnswer: (id, offer) => {
+            // debugger;
+            console.log(`setAnswer ${id} `)
+            appendLog(`click answer call to answer for ${getNameFromId(id)}`, true)
+            document.getElementById("answerCall").disabled = false;
             document.getElementById("answerCall").onclick = (evt) => { signals.answerCall(id, offer) }
         },
 
         answerCall: (id, offer) => {
+            // debugger;
+            console.log(`answer ${id}`)
+            document.getElementById("answerCall").disabled = true
             if (signals.each[id] != null) {
                 console.log("not answering, already answerered ??? ")
                 return;
             }
 
             localConn = createRTCPeer()
-            signals.each[id] = getCurrent(id, localConn)
+            current = signals.each[id] = getCurrent(id, localConn, getNameFromId(id))
 
             var desc = new RTCSessionDescription(offer);
             localConn.setRemoteDescription(desc).then(function () {
-                return navigator.mediaDevices.getUserMedia(mediaConstraints);
+                //return navigator.mediaDevices.getUserMedia(mediaConstraints);
             }).then(() => {
+                // debugger;
+                console.log(`after Set Remote Desc`)
                 createAndSetDataChannelCallbacks(id, current, localConn)
                 return localConn.createAnswer();
-            }).then(() => {
+            }).then((answer) => {
+                // debugger;
+                console.log(`after  set remote desc and create answer`)
                 return localConn.setLocalDescription(answer);
             }).then(() => {
+                console.log(`after set remote desc, create answer and set local desc`)
                 var msg = {
                     type: "answer",
-                    sdp: localConn.localDescription
+                    answer: localConn.localDescription
                 };
                 sendToId(id, msg);
             })
+        },
+
+        handleNewICECandidateMsg: (id, msg) => {
+            console.log(`handleNewICECandidateMsg from ${getNameFromId(id)}`)
+            if (signals.each[id] == null) {
+                console.log("pushing ice candidate to backup for ice candidate")
+                backup_ice_can = signals.backup_ice_can
+                if (backup_ice_can[id] == null) {
+                    backup_ice_can[id] = []
+                }
+                backup_ice_can[id].push(msg)
+            }
+            else {
+                console.log("calling setNewICECandidateMsg from handleNewICECandidateMsg")
+                signals.setNewICECandidateMsg(id, msg)
+            }
+        },
+
+        setReturnAnswer: (id, answer) => {
+            console.log("call answered by ", id, "with answer", answer)
+            var desc = new RTCSessionDescription(answer);
+            signals.each[id].localConn.setRemoteDescription(desc)
+            sendToId(id, { type: "answer-set-done-by-caller" })
+        },
+
+        clearICECandidateBack: (id) => {
+            console.log("clearICECandidateBack", signals.backup_ice_can[id])
+            if (signals.backup_ice_can[id] != null) {
+                for (var value of signals.backup_ice_can[id]) {
+                    console.log("calling from backup for ice candidate")
+                    signals.handleNewICECandidateMsg(id, value);
+                }
+                signals.backup_ice_can[id] = null;
+            }
+        },
+
+        setNewICECandidateMsg: (id, msg) => {
+            console.log('setNewICECandidateMsg', id, msg)
+            localConn = signals.each[id].localConn
+            var candidate = new RTCIceCandidate(msg.candidate);
+            localConn.addIceCandidate(candidate)
+                .catch(reportError);
         },
 
         answeredCall: (id, answer) => {

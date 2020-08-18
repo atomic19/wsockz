@@ -1,44 +1,69 @@
 <html>
-    <head>
-        <style>
-            p {
-                margin: 0;
-            }
-        </style>
-    </head>
-    <body>
-        <div style="float: left;">
-            <div style="float: left; width:100px">
-                <div style="float:left; width: 100px">
-                    <label style="float: left; width: 100%">id</label>
-                    <input id="rndID" disabled type="text" style="float: left; width: 100%"></input>
-                </div>
-                <div style="float:left; width: 100px">
-                    <label style="float: left; width: 100%">Name</label>
-                    <input id="name" type="text" style="float: left; width: 100%"></input>
-                </div>
-                <div style="float:left; width: 100px">
-                    <button id="connect">Connect</button>
-                </div>
-            </div>
-            <div style="float: left; padding-left: 10px">
-                <div style="float:left; width: 100px">
-                    <label style="float: left; width: 100%">All Online: </label>
-                </div>
-                <div style="float:left; width: 100%" id="online-users">
-                </div>
-            </div>
 
+<head>
+    <style>
+        p {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="float: left;">
+        <div style="float: left; width:100px">
+            <div style="float:left; width: 100px">
+                <label style="float: left; width: 100%">id</label>
+                <input id="rndID" disabled type="text" style="float: left; width: 100%"></input>
+            </div>
+            <div style="float:left; width: 100px">
+                <label style="float: left; width: 100%">Name</label>
+                <input id="name" type="text" style="float: left; width: 100%"></input>
+            </div>
+            <div style="float:left; width: 100px">
+                <button id="connect">Connect</button>
+            </div>
         </div>
-
-        <div style="float: left; width: 100%">
-            <hr/>
-            <label style="float: left; width: 100%">Logs</label>
-            <div style="float: left; width: 100%" id="message-log">
+        <div style="float: left; padding-left: 10px">
+            <div style="float:left; width: 100px">
+                <label style="float: left; width: 100%">All Online: </label>
+            </div>
+            <div style="float:left; width: 100%" id="online-users">
             </div>
         </div>
 
-    </body>
+        <div style="float: left; padding-left: 10px;">
+            <button id="answerCall" disabled>answer call</button>
+        </div>
 
-    <script src="index.js"></script>
+    </div>
+
+    <div style="float: left;width: 100%;">
+        <hr />
+        <label style="float: left; width: 100%">Connected</label>
+        <div style="float: left;" id="connected-users">
+
+        </div>
+    </div>
+
+    <div style="float: left; width: 100%">
+        <hr />
+        <label style="float: left; width: 100%">Logs</label>
+        <div style="float: left; width: 100%" id="message-log">
+        </div>
+    </div>
+
+    <div style="float: left; width: 100%">
+        <hr/>
+        <label id="chat-with" style="float: left; width: 100%;"></label>
+    </div>
+
+    <div style="width: 350px" id="wrapper-for-chat">
+       
+    </div>
+
+</body>
+
+<script src="tmpl.min.js"></script>
+<script src="index.js"></script>
+
 </html>

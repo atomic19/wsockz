@@ -183,6 +183,12 @@ func (cs *chatServer) sendHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (cs *chatServer) sendRefreshToAll() {
+	for _, v := range cs.allUsers {
+		v.sendMsgsChan <- []byte("refresh")
+	}
+}
+
 func (cs *chatServer) listHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -228,6 +234,9 @@ func (cs *chatServer) subscribe(ctx context.Context, c *websocket.Conn, sckUserP
 
 	cs.addSubscriber(s, sckUser)
 	defer cs.deleteSubscriber(s, sckUser.RndID)
+	defer cs.sendRefreshToAll()
+
+	cs.sendRefreshToAll()
 
 	for {
 		select {
