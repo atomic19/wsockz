@@ -5,6 +5,11 @@
         p {
             margin: 0;
         }
+
+        video {
+            -webkit-transform: scaleX(-1);
+            transform: scaleX(-1);
+        }
     </style>
 </head>
 
@@ -35,6 +40,26 @@
             <button id="answerCall" disabled>answer call</button>
         </div>
 
+        <div style="float: left; padding-left: 10px">
+            <label>availableCameras</label>
+            <select id="availableCameras"></select>
+
+            <button id="loadcamera">Load Camera</button>
+            <button id="stopcamera">Stop Camera</button>
+        </div>
+
+        <div style="float: left; padding-left: 10px">
+            <div style="float: left; padding-left: 10px">
+                <label>Your Camera</label>
+                <video id="localVideo" autoplay playsinline controls="false"> </video>
+            </div>
+
+
+            <div style="float: left; padding-left: 10px">
+                <label>Other Camera</label>
+                <video id="remoteVideo" autoplay playsinline controls="false"> </video>
+            </div>
+        </div>
     </div>
 
     <div style="float: left;width: 100%;">
@@ -53,12 +78,12 @@
     </div>
 
     <div style="float: left; width: 100%">
-        <hr/>
+        <hr />
         <label id="chat-with" style="float: left; width: 100%;"></label>
     </div>
 
     <div style="width: 350px" id="wrapper-for-chat">
-       
+
     </div>
 
 </body>

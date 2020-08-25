@@ -67,6 +67,11 @@ func newChatServer() *chatServer {
 		publishLimiter:          rate.NewLimiter(rate.Every(time.Millisecond*100), 8),
 		allUsers:                make(map[string]*SckUser),
 	}
+
+	// c := cors.New(cors.Options{
+	// 	AllowedOrigins: []string{"http://localhost:8080"},
+	// })
+
 	cs.serveMux.Handle("/", http.FileServer(http.Dir("./file")))
 	cs.serveMux.HandleFunc("/register", cs.registerHandler)
 	cs.serveMux.HandleFunc("/send", cs.sendHandler)

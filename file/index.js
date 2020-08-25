@@ -63,7 +63,7 @@
             }
             else if (data.type == "new-ice-candidate") {
                 console.log('new-ice-candidate', data)
-                signals.handleNewICECandidateMsg(data.from, data);
+                signals.handleNewICECandidateMsg(data.from, data,);
             }
             else if (data.type == "answer-set-done-by-caller") {
                 signals.clearICECandidateBack(data.from)
@@ -103,6 +103,7 @@
         return p
     }
     appendLog("type name and click connect")
+    appendLog("Put headphones before clicking load camera", true)
 
     function createElementFromHTML(htmlString) {
         var div = document.createElement('div');
@@ -254,10 +255,10 @@
                     }
                 },
                 ontrack: (id, event) => {
-                    // debugger;
+                    debugger;
                     console.log("ontrack")
-                    document.getElementById("received_video").srcObject = event.streams[0];
-                    document.getElementById("hangup-button").disabled = false;
+                    document.getElementById("remoteVideo").srcObject = event.streams[0];
+                    //document.getElementById("hangup-button").disabled = false;
                 },
                 onnegotiationneeded: (toId, event, localConn) => {
                     // debugger;
@@ -270,10 +271,11 @@
                     }).catch(reportError);
                 },
                 onremovetrack: (id, event) => {
-                    // debugger;
+                    debugger;
                     console.log('remove track')
-                    //var stream = document.getElementById("received_video").srcObject;
-                    //var trackList = stream.getTracks();
+                    var stream = document.getElementById("remoteVideo").srcObject;
+                    var trackList = stream.getTracks();
+                    debugger;
 
                     if (trackList.length == 0) {
                         //closeVideoCall();
@@ -315,6 +317,7 @@
         localConn.onicegatheringstatechange = (event) => current.connCallbacks.onicegatheringstatechange(id, event);
         localConn.onsignalingstatechange = (event) => current.connCallbacks.onsignalingstatechange(id, event, localConn);
     }
+
 
     createAndSetDataChannelCallbacks = (id, current, localConn) => {
         sendChannel = current.sendChannel = current.localConn.createDataChannel('sendDataChannel');
@@ -367,7 +370,6 @@
             const readyState = receiveChannel.readyState;
             console.log(`Receive channel state is: ${readyState}`);
         }
-
     }
 
     createRTCPeer = () => {
@@ -422,7 +424,8 @@
             </div>
             `
             wrapper_for_chat.innerHTML = mainWrapper
-            
+            //document.getElementById("send-text-to-peer").focus()
+
             document.getElementById("send-text-to-peer").addEventListener("keyup", function (event) {
                 if (event.keyCode === 13) {
                     event.preventDefault();
@@ -454,6 +457,8 @@
             setConnCallbacks(id, current, localConn);
 
             createAndSetDataChannelCallbacks(id, current, localConn)
+
+            console.log("set streams done,call done")
         },
 
         setAnswer: (id, offer) => {
@@ -474,15 +479,28 @@
             }
 
             localConn = createRTCPeer()
-            current = signals.each[id] = getCurrent(id, localConn, getNameFromId(id))
+            current = getCurrent(id, localConn, getNameFromId(id))
+            signals.each[id] = current;
+            setConnCallbacks(id, current, localConn);
 
             var desc = new RTCSessionDescription(offer);
             localConn.setRemoteDescription(desc).then(function () {
+
+                var listElement = document.getElementById("availableCameras");
+                var option = listElement.selectedOptions[0];
+                var cameraId = option.value;
+                if (cameraId != "DEFAULT") {
+                    return devices.openCamera(cameraId, 480, 480);
+                }
+
                 //return navigator.mediaDevices.getUserMedia(mediaConstraints);
-            }).then(() => {
+            }).then((localStream) => {
+                // debugger;
+                localStream.getTracks().forEach(track => localConn.addTrack(track, localStream))
                 // debugger;
                 console.log(`after Set Remote Desc`)
-                createAndSetDataChannelCallbacks(id, current, localConn)
+                signals.clearICECandidateBack(id);
+                // createAndSetDataChannelCallbacks(id, current, localConn)
                 return localConn.createAnswer();
             }).then((answer) => {
                 // debugger;
@@ -498,9 +516,12 @@
             })
         },
 
-        handleNewICECandidateMsg: (id, msg) => {
+        handleNewICECandidateMsg: (id, msg, handle_failed) => {
             console.log(`handleNewICECandidateMsg from ${getNameFromId(id)}`)
-            if (signals.each[id] == null) {
+            if (signals.each[id] == null 
+                || signals.each[id].localConn == null 
+                || signals.each[id].localConn.remoteDescription == null
+                || !signals.each[id].localConn.remoteDescription.type) {
                 console.log("pushing ice candidate to backup for ice candidate")
                 backup_ice_can = signals.backup_ice_can
                 if (backup_ice_can[id] == null) {
@@ -509,42 +530,174 @@
                 backup_ice_can[id].push(msg)
             }
             else {
+                if (handle_failed == null) {
+                    handle_failed = (failed_msg) => {
+                        if (signals.backup_ice_can[id] == null) {
+                            signals.backup_ice_can[id] = []
+                        }
+                        signals.backup_ice_can[id].push(failed_msg)
+                    }
+                }
                 console.log("calling setNewICECandidateMsg from handleNewICECandidateMsg")
-                signals.setNewICECandidateMsg(id, msg)
+                signals.setNewICECandidateMsg(id, msg, (failed_msg) => { handle_failed(failed_msg) });
             }
         },
 
         setReturnAnswer: (id, answer) => {
             console.log("call answered by ", id, "with answer", answer)
             var desc = new RTCSessionDescription(answer);
-            signals.each[id].localConn.setRemoteDescription(desc)
+            signals.each[id].localConn.setRemoteDescription(desc).then(function () {
+                var listElement = document.getElementById("availableCameras");
+                var option = listElement.selectedOptions[0];
+                var cameraId = option.value;
+                if (cameraId != "DEFAULT") {
+                    devices.openCamera(cameraId, 480, 480).then(localStream => {
+                        localStream.getTracks().forEach(track => localConn.addTrack(track, localStream));
+                    });
+                }
+            });
             sendToId(id, { type: "answer-set-done-by-caller" })
+            signals.clearICECandidateBack(id)
         },
 
         clearICECandidateBack: (id) => {
             console.log("clearICECandidateBack", signals.backup_ice_can[id])
             if (signals.backup_ice_can[id] != null) {
+                failed = []
                 for (var value of signals.backup_ice_can[id]) {
                     console.log("calling from backup for ice candidate")
-                    signals.handleNewICECandidateMsg(id, value);
+                    signals.handleNewICECandidateMsg(id, value, (failed_msg) => { failed.push(failed_msg) });
                 }
                 signals.backup_ice_can[id] = null;
+                if (failed.length > 0) {
+                    console.log("clearICECandidateBack Failed > 0", failed);
+                    signals.backup_ice_can[id] = failed;
+                }
             }
         },
 
-        setNewICECandidateMsg: (id, msg) => {
-            console.log('setNewICECandidateMsg', id, msg)
+        setNewICECandidateMsg: (id, msg, handle_failed) => {
+            console.log('setNewICECandidateMsg', id)
             localConn = signals.each[id].localConn
             var candidate = new RTCIceCandidate(msg.candidate);
+            // debugger;
             localConn.addIceCandidate(candidate)
-                .catch(reportError);
+                .catch((error) => { console.log("failed to add ice candidate", error); handle_failed(msg) });
         },
 
         answeredCall: (id, answer) => {
             signals.each[id].localConn.setRemoteDescription(new RTCSessionDescription(answer));
+            signals.clearICECandidateBack(id);
         }
 
     }
+
+    window.userSettings = {};
+    devices = {
+        // Updates the select element with the provided set of cameras
+        updateCameraList: function (cameras) {
+            function createListOption(label, value) {
+                cameraOption = document.createElement('option');
+                cameraOption.label = label;
+                cameraOption.value = value;
+                cameraOption.text = label
+                return cameraOption;
+            }
+
+            const listElement = document.querySelector('select#availableCameras');
+            listElement.innerHTML = '';
+            cameras.map(camera => {
+                return createListOption(camera.label, camera.deviceId);
+            }).forEach(cameraOption => {
+                listElement.add(cameraOption);
+            });
+            listElement.add(createListOption("Select", "DEFAULT"));
+        },
+
+        // Fetch an array of devices of a certain type
+        getConnectedDevices: async function (type) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                stream.getTracks().forEach(function (track) {
+                    track.stop();
+                });
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                return devices.filter(device => device.kind === type)
+            }
+            catch (error) {
+
+            }
+        },
+
+        init: async function () {
+            // Get the initial set of cameras connected
+            const videoCameras = devices.getConnectedDevices('videoinput');
+            if (videoCameras != null && videoCameras != undefined) {
+                videoCameras.then(cameras => {
+                    if (cameras != null && cameras != undefined) {
+                        devices.updateCameraList(cameras);
+                    } else {
+                        errorElement = document.querySelector("#error")
+                        errorElement.hidden = false;
+                    }
+                });
+                //updateCameraList(videoCameras);
+            }
+
+
+            // Listen for changes to media devices and update the list accordingly
+            navigator.mediaDevices.addEventListener('devicechange', event => {
+                const newCameraList = devices.getConnectedDevices('video');
+                devices.updateCameraList(newCameraList);
+            });
+
+            document.getElementById("loadcamera").onclick = function () {
+                var listElement = document.getElementById("availableCameras");
+                var option = listElement.selectedOptions[0];
+                var cameraId = option.value;
+                if (cameraId != "DEFAULT") {
+                    devices.openCamera(cameraId, 480, 480);
+                }
+            }
+
+            document.getElementById("stopcamera").onclick = function () {
+                if (window.userSettings.openStream != null && window.userSettings.openStream.active) {
+                    window.userSettings.openStream.getTracks().forEach(function (track) {
+                        track.stop();
+                    });
+                }
+
+                const videoElement = document.querySelector('video#localVideo');
+                if (videoElement.srcObject != null) {
+                    videoElement.srcObject.getTracks().forEach(function (track) {
+                        track.stop();
+                    });
+                }
+            }
+        },
+
+        openCamera: async function (cameraId, minWidth, minHeight) {
+            const constraints = {
+                'audio': { 'echoCancellation': true },
+                'video': {
+                    'deviceId': cameraId,
+                    'width': { 'min': minWidth },
+                    'height': { 'min': minHeight }
+                }
+            }
+
+            window.userSettings.openStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const videoElement = document.querySelector('video#localVideo');
+            videoElement.srcObject = window.userSettings.openStream;
+            return window.userSettings.openStream;
+        }
+
+    }
+
+
+
+    devices.init();
+
 
 
 
