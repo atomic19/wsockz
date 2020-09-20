@@ -58,6 +58,11 @@ type SckUser struct {
 	closeSlow    func()
 }
 
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")
+	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+}
+
 // newChatServer constructs a chatServer with the defaults.
 func newChatServer() *chatServer {
 	cs := &chatServer{
@@ -105,7 +110,11 @@ func GetIP(r *http.Request) string {
 // subscribeHandler accepts the WebSocket connection and then subscribes
 // it to all future messages.
 func (cs *chatServer) registerHandler(w http.ResponseWriter, r *http.Request) {
-	c, err := websocket.Accept(w, r, nil)
+	enableCors(&w)
+
+	var aptOptions = websocket.AcceptOptions{OriginPatterns: []string{"localhost:8080"}}
+
+	c, err := websocket.Accept(w, r, &aptOptions)
 	if err != nil {
 		cs.logf("%v", err)
 		return
@@ -164,7 +173,8 @@ type SendMsgBody struct {
 // publishHandler reads the request body with a limit of 8192 bytes and then publishes
 // the received message.
 func (cs *chatServer) sendHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	enableCors(&w)
+	if r.Method != "POST" && r.Method != "OPTIONS" {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
@@ -215,6 +225,7 @@ func (cs *chatServer) listHandler(w http.ResponseWriter, r *http.Request) {
 // It uses CloseRead to keep reading from the connection to process control
 // messages and cancel the context if the connection drops.
 func (cs *chatServer) subscribe(ctx context.Context, c *websocket.Conn, sckUserPublic *SckUserPublic) error {
+	fmt.Println("in subscribe method")
 	ctx = c.CloseRead(ctx)
 
 	s := &subscriber{
