@@ -129,9 +129,9 @@
         htmlDivs = []
 
         Object.keys(online).forEach(function (item) {
-            const e1 = `<div style="float:left; width: 100px; padding: 10px; margin: 10px; border: 1px solid black;">
-            <label style="float: left;">${online[item].Name}</label>
-            <button style="float: right" id="callAudBtn" value="${item}">call</button>
+            const e1 = `<div class="col-sm-3 online-each-user">
+            <label class="form-label">${online[item].Name}</label>
+            <button class="btn btn-outline-warning" style="float: right" id="callAudBtn" value="${item}">call</button>
             </div>`;
             htmlDivs.push(e1)
         });
@@ -487,6 +487,8 @@
             // debugger;
             console.log(`setAnswer ${id} `)
             appendLog(`click answer call to answer for ${getNameFromId(id)}`, true)
+            document.getElementById("call_from_label").hidden = false;
+            document.getElementById("call_from_label").textContent = `click answer call to answer from ${getNameFromId(id)}`
             document.getElementById("answerCall").disabled = false;
             document.getElementById("answerCall").onclick = (evt) => { signals.answerCall(id, offer) }
         },

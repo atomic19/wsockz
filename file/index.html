@@ -1,6 +1,10 @@
-<html>
+<!doctype html>
+<html lang="en">
 
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="bootstrap.min.css" rel="stylesheet">
     <style>
         p {
             margin: 0;
@@ -10,55 +14,102 @@
             -webkit-transform: scaleX(-1);
             transform: scaleX(-1);
         }
+
+        .vide-max-width-height {
+            max-width: 500px;
+            max-height: 500px;
+        }
+
+        .online-each-user {
+            position: relative;
+            border: solid #dee2e6;
+            padding: 1rem;
+            margin-right: 0;
+            margin-left: 0;
+            margin-bottom: 1px;
+            border-width: 1px;
+            border-top-left-radius: .25rem;
+            border-top-right-radius: .25rem;
+        }
     </style>
 </head>
 
 <body>
-    <div style="float: left;">
-        <div style="float: left; width:100px">
-            <div style="float:left; width: 100px">
-                <label style="float: left; width: 100%">id</label>
-                <input id="rndID" disabled type="text" style="float: left; width: 100%"></input>
-            </div>
-            <div style="float:left; width: 100px">
-                <label style="float: left; width: 100%">Name</label>
-                <input id="name" type="text" style="float: left; width: 100%"></input>
-            </div>
-            <div style="float:left; width: 100px">
-                <button id="connect">Connect</button>
-            </div>
-        </div>
-        <div style="float: left; padding-left: 10px">
-            <div style="float:left; width: 100px">
-                <label style="float: left; width: 100%">All Online: </label>
-            </div>
-            <div style="float:left; width: 100%" id="online-users">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="container">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Enter Name and Click Connect</label>
+                    <input id="name" type="text" class="form-control"></input>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">id (auto generated)</label>
+                    <input id="rndID" disabled type="text" class="form-control"></input>
+                </div>
+                <button class="btn btn-primary" id="connect">Connect</button>
             </div>
         </div>
 
-        <div style="float: left; padding-left: 10px;">
-            <button id="answerCall" disabled>answer call</button>
+        <div class="row">
+            <div class="container">
+                <div class="mb-3">
+                    <div>
+                        <label class="form-label">Choose one from Available Cameras</label>
+                        <select id="availableCameras" class="form-control"></select>
+                    </div>
+                </div>
+                <div class="col-sm" hidden>
+                    <button id="loadcamera">Load Camera</button>
+
+                </div>
+                <div class="col-sm" hidden>
+                    <button id="stopcamera">Stop Camera</button>
+                </div>
+            </div>
         </div>
 
-        <div style="float: left; padding-left: 10px">
-            <label>availableCameras</label>
-            <select id="availableCameras"></select>
-
-            <button id="loadcamera">Load Camera</button>
-            <button id="stopcamera">Stop Camera</button>
+        <div class="row">
+            <div class="container">
+                <div class="mb-3">
+                    <label class="form-label" id="call_from_label"></label>
+                </div>
+                <button id="answerCall" disabled class="btn btn-success">answer call</button>
+            </div>
         </div>
 
-        <div style="float: left; padding-left: 10px">
-            <div style="float: left; padding-left: 10px">
-                <label>Your Camera</label>
-                <video id="localVideo" autoplay playsinline controls="false" style="max-width: 500px; max-height: 500px;"> </video>
+        <div class="row">
+            <div class="container">
+                <div class="sm-12">
+                    <label class="form-label">All Online: </label>
+                </div>
             </div>
+        </div>
 
+        <div class="row">
+            <div class="container">
+                <div id="online-users">
 
-            <div style="float: left; padding-left: 10px">
-                <label>Other Camera</label>
-                <video id="remoteVideo" autoplay playsinline controls="false" style="max-width: 500px; max-height: 500px;"> </video>
+                </div>
             </div>
+        </div>
+
+        <div class="row">
+            <div class="container">
+                <label class="form-label">Other Camera</label>
+            </div>
+        </div>
+
+        <div class="row">
+            <video id="remoteVideo" autoplay playsinline controls="false" class="vide-max-width-height"> </video>
+        </div>
+
+        <div class="row">
+            <div class="container">
+                <label class="form-label">Your Camera</label>
+            </div>
+        </div>
+        <div class="row">
+            <video id="localVideo" autoplay playsinline controls="false" class="vide-max-width-height"> </video>
         </div>
     </div>
 
@@ -90,5 +141,7 @@
 
 <script src="tmpl.min.js"></script>
 <script src="index.js"></script>
+
+<script src="bootstrap.bundle.min.js"></script>
 
 </html>
