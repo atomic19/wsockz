@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -46,10 +45,12 @@ func run() error {
 	go func() {
 		certF := *certFile
 		keyF := *keyFile
-		fmt.Printf("certfile: %v keyFile: %v", certF, keyF)
+		log.Printf("certfile: %v keyFile: %v", certF, keyF)
 		if certF != "EMT" && certF != "" && keyF != "EMT" && keyF != "" {
+			log.Printf("Starting HTTPS")
 			errc <- s.ServeTLS(l, certF, keyF)
 		} else {
+			log.Printf("Starting HTTP")
 			errc <- s.Serve(l)
 		}
 	}()
