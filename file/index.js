@@ -25,7 +25,9 @@
         document.getElementById("connect").disabled = true
         namele.disabled = true
 
-        const conn = new WebSocket(`ws://${location.host}/register?rndID=${rndidele.value}&info=&name=${namele.value}`)
+        ws_prot = location.protocol == "https:" ? "wss" : "ws" 
+
+        const conn = new WebSocket(`${ws_prot}://${location.host}/register?rndID=${rndidele.value}&info=&name=${namele.value}`)
 
         conn.addEventListener("close", ev => {
             appendLog(`Disconnected code: ${ev.code}, reason: ${ev.reason}`, true)
