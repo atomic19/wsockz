@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -25,8 +26,8 @@ func main() {
 func run() error {
 
 	addrListen := flag.String("addr", "", "please provide an address to listen on as the first argument")
-	certFile := *flag.String("cert", "EMT", "enter cert file if available -cert else use empty value")
-	keyFile := *flag.String("key", "EMT", "enter key file if available using -key else use empty value")
+	certFile := flag.String("cert", "EMT", "enter cert file if available -cert else use empty value")
+	keyFile := flag.String("key", "EMT", "enter key file if available using -key else use empty value")
 	flag.Parse()
 
 	l, err := net.Listen("tcp", *addrListen)
@@ -43,8 +44,11 @@ func run() error {
 	}
 	errc := make(chan error, 1)
 	go func() {
-		if certFile != "EMT" && certFile != "" && keyFile != "EMT" && keyFile != "" {
-			errc <- s.ServeTLS(l, certFile, keyFile)
+		certF := *certFile
+		keyF := *keyFile
+		fmt.Printf("certfile: %v keyFile: %v", certF, keyF)
+		if certF != "EMT" && certF != "" && keyF != "EMT" && keyF != "" {
+			errc <- s.ServeTLS(l, certF, keyF)
 		} else {
 			errc <- s.Serve(l)
 		}
