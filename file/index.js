@@ -323,6 +323,8 @@
 
 
     createAndSetDataChannelCallbacks = (id, current, localConn) => {
+        return;
+        
         sendChannel = current.sendChannel = current.localConn.createDataChannel('sendDataChannel');
 
         sendChannel.onopen = onSendChannelStateChange;
@@ -449,7 +451,12 @@
         active: null,
         backup_ice_can: {},
         each: {},
-        call: (id, name) => {
+        chat: false,
+        call: (id, name, chat) => {
+            if(chat == null) {
+                chat = false;
+            }
+            signals.chat = chat;
             // debugger;
             if (signals.each[id] != null) {
                 return;
@@ -457,7 +464,18 @@
 
             localConn = createRTCPeer()
 
+            var listElement = document.getElementById("availableCameras");
+            var option = listElement.selectedOptions[0];
+            var cameraId = option.value;
+            if (cameraId != "DEFAULT") {
+                devices.openCamera(cameraId, 480, 480).then(localStream => {
+                    localStream.getTracks().forEach(track => localConn.addTrack(track, localStream));
+                    console.log("local camera track set")
+                });
+            }
+
             current = signals.each[id] = getCurrent(id, localConn, getNameFromId(id));
+            
             setConnCallbacks(id, current, localConn);
 
             createAndSetDataChannelCallbacks(id, current, localConn)
@@ -552,16 +570,16 @@
             var desc = new RTCSessionDescription(answer);
             signals.each[id].localConn.setRemoteDescription(desc).then(function () {
                 sendToId(id, { type: "answer-set-done-by-caller" })
-                var listElement = document.getElementById("availableCameras");
-                var option = listElement.selectedOptions[0];
-                var cameraId = option.value;
-                if (cameraId != "DEFAULT") {
-                    devices.openCamera(cameraId, 480, 480).then(localStream => {
-                        localStream.getTracks().forEach(track => localConn.addTrack(track, localStream));
-                    });
-                }
+                // var listElement = document.getElementById("availableCameras");
+                // var option = listElement.selectedOptions[0];
+                // var cameraId = option.value;
+                // if (cameraId != "DEFAULT") {
+                //     devices.openCamera(cameraId, 480, 480).then(localStream => {
+                //         localStream.getTracks().forEach(track => localConn.addTrack(track, localStream));
+                //     });
+                // }
+                signals.clearICECandidateBack(id)
             });
-            signals.clearICECandidateBack(id)
         },
 
         clearICECandidateBack: (id) => {
@@ -605,7 +623,7 @@
     devices = {
         // Updates the select element with the provided set of cameras
         updateCameraList: function (cameras) {
-            cameras.reverse(); // why when using virtual cams give them pref
+            // cameras.reverse(); // why when using virtual cams give them pref
             function createListOption(label, value) {
                 cameraOption = document.createElement('option');
                 cameraOption.label = label;
