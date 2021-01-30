@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
+	"flag"
 	"log"
 	"net"
 	"net/http"
@@ -23,11 +23,13 @@ func main() {
 // run initializes the chatServer and then
 // starts a http.Server for the passed in address.
 func run() error {
-	if len(os.Args) < 2 {
-		return errors.New("please provide an address to listen on as the first argument")
-	}
 
-	l, err := net.Listen("tcp", os.Args[1])
+	addrListen := flag.String("addr", "", "please provide an address to listen on as the first argument")
+	certFile := *flag.String("cert", "EMT", "enter cert file if available -cert else use empty value")
+	keyFile := *flag.String("key", "EMT", "enter key file if available using -key else use empty value")
+	flag.Parse()
+
+	l, err := net.Listen("tcp", *addrListen)
 	if err != nil {
 		return err
 	}
@@ -41,7 +43,11 @@ func run() error {
 	}
 	errc := make(chan error, 1)
 	go func() {
-		errc <- s.Serve(l)
+		if certFile != "EMT" && certFile != "" && keyFile != "EMT" && keyFile != "" {
+			errc <- s.ServeTLS(l, certFile, keyFile)
+		} else {
+			errc <- s.Serve(l)
+		}
 	}()
 
 	sigs := make(chan os.Signal, 1)
