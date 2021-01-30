@@ -63,9 +63,10 @@
             }
             else if (data.type == "new-ice-candidate") {
                 console.log('new-ice-candidate', data)
-                signals.handleNewICECandidateMsg(data.from, data,);
+                signals.handleNewICECandidateMsg(data.from, data, null);
             }
             else if (data.type == "answer-set-done-by-caller") {
+                // debugger;
                 signals.clearICECandidateBack(data.from)
             }
 
@@ -255,7 +256,7 @@
                     }
                 },
                 ontrack: (id, event) => {
-                    debugger;
+                    // debugger;
                     console.log("ontrack")
                     document.getElementById("remoteVideo").srcObject = event.streams[0];
                     //document.getElementById("hangup-button").disabled = false;
@@ -271,11 +272,11 @@
                     }).catch(reportError);
                 },
                 onremovetrack: (id, event) => {
-                    debugger;
+                    // debugger;
                     console.log('remove track')
                     var stream = document.getElementById("remoteVideo").srcObject;
                     var trackList = stream.getTracks();
-                    debugger;
+                    // debugger;
 
                     if (trackList.length == 0) {
                         //closeVideoCall();
@@ -349,6 +350,7 @@
         }
 
         function onSendChannelStateChange() {
+            // debugger;
             const readyState = sendChannel.readyState;
             console.log('Send channel state is: ' + readyState);
             if (readyState === 'open') {
@@ -373,7 +375,7 @@
     }
 
     createRTCPeer = () => {
-        const servers = { 'iceServers': [{ 'urls': 'turn:104.42.249.204:3478', 'username': 'username', 'credential': 'password' }] }; // null; { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+        const servers = { 'iceServers': [{ 'urls': 'turn:127.0.0.1:3478', 'username': 'username', 'credential': 'password' }] }; // null; { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
         const localConn = new RTCPeerConnection(servers);
         return localConn
     }
@@ -500,7 +502,7 @@
                 // debugger;
                 console.log(`after Set Remote Desc`)
                 signals.clearICECandidateBack(id);
-                // createAndSetDataChannelCallbacks(id, current, localConn)
+                createAndSetDataChannelCallbacks(id, current, localConn)
                 return localConn.createAnswer();
             }).then((answer) => {
                 // debugger;
@@ -547,6 +549,7 @@
             console.log("call answered by ", id, "with answer", answer)
             var desc = new RTCSessionDescription(answer);
             signals.each[id].localConn.setRemoteDescription(desc).then(function () {
+                sendToId(id, { type: "answer-set-done-by-caller" })
                 var listElement = document.getElementById("availableCameras");
                 var option = listElement.selectedOptions[0];
                 var cameraId = option.value;
@@ -556,7 +559,6 @@
                     });
                 }
             });
-            sendToId(id, { type: "answer-set-done-by-caller" })
             signals.clearICECandidateBack(id)
         },
 
@@ -582,7 +584,12 @@
             var candidate = new RTCIceCandidate(msg.candidate);
             // debugger;
             localConn.addIceCandidate(candidate)
-                .catch((error) => { console.log("failed to add ice candidate", error); handle_failed(msg) });
+                .catch((error, e2) => { 
+                    // debugger; 
+                    console.log(id, msg, candidate); 
+                    console.log("failed to add ice candidate", error, e2); 
+                    handle_failed(msg) 
+                });
         },
 
         answeredCall: (id, answer) => {
@@ -596,6 +603,7 @@
     devices = {
         // Updates the select element with the provided set of cameras
         updateCameraList: function (cameras) {
+            cameras.reverse(); // why when using virtual cams give them pref
             function createListOption(label, value) {
                 cameraOption = document.createElement('option');
                 cameraOption.label = label;
@@ -638,7 +646,9 @@
                         devices.updateCameraList(cameras);
                     } else {
                         errorElement = document.querySelector("#error")
-                        errorElement.hidden = false;
+                        if (errorElement != null){
+                            errorElement.hidden = false;
+                        }
                     }
                 });
                 //updateCameraList(videoCameras);
