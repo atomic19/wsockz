@@ -375,7 +375,7 @@
     }
 
     createRTCPeer = () => {
-        const servers = { 'iceServers': [{ 'urls': 'turn:127.0.0.1:3478', 'username': 'username', 'credential': 'password' }] }; // null; { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+        const servers = { 'iceServers': [{ 'urls': 'turn:gg.f64.dev:3478', 'username': 'username', 'credential': 'password' }] }; // null; { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
         const localConn = new RTCPeerConnection(servers);
         return localConn
     }
