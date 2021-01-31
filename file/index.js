@@ -109,7 +109,7 @@
         }
         catch {
         }
-        location.reload();
+        resetStreamsAndReload();
     }
 
     function try_conn_if_local_is_set() {
@@ -133,6 +133,17 @@
 
     // boot init connect
     try_conn_if_local_is_set();
+
+    // resetStreamsAndReload();
+    function resetStreamsAndReload(){
+        try{
+            window.userSettings.openStream.getTracks().forEach(track => localConn.addTrack(track, localStream));
+        }
+        catch{
+        }
+
+        location.reload()
+    }
 
     const messageLog = document.getElementById("message-log")
     const messageInput = document.getElementById("message-input")
@@ -334,9 +345,9 @@
                     console.log('oniceconnectionstatechange', localConn.iceConnectionState)
                     switch (localConn.iceConnectionState) {
                         case "disconnected":
-                            location.reload();
+                            resetStreamsAndReload();
                         case "closed":
-                            location.reload();
+                            resetStreamsAndReload();
                         case "failed":
                             //console.log("oniceconnectionstatechange - failed")
                             //closeVideoCall();
