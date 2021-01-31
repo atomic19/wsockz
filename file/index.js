@@ -1,5 +1,14 @@
 ; (() => {
 
+    let localStorage = {}
+
+    if (typeof (Storage) !== "undefined") {
+        if (window.localStorage != undefined) {
+            // localStorage = window.localStorage
+            localStorage = window.sessionStorage
+        }
+    }
+
     let expectingMessage = false
 
     function uuidv4() {
@@ -23,9 +32,12 @@
 
         document.getElementById("rndID").value = uuidv4().toString()
         document.getElementById("connect").disabled = true
+        document.getElementById("disconnect").hidden = false
+        document.getElementById("disconnect").disabled = false
         namele.disabled = true
+        set_name_to_local(namele.value)
 
-        ws_prot = location.protocol == "https:" ? "wss" : "ws" 
+        ws_prot = location.protocol == "https:" ? "wss" : "ws"
 
         const conn = new WebSocket(`${ws_prot}://${location.host}/register?rndID=${rndidele.value}&info=&name=${namele.value}`)
 
@@ -79,7 +91,9 @@
             // }
         })
     }
+
     document.getElementById("connect").onclick = connect_ws
+    document.getElementById("disconnect").onclick = disconnect
 
     document.getElementById("name")
         .addEventListener("keyup", function (event) {
@@ -88,6 +102,37 @@
                 document.getElementById("connect").click();
             }
         });
+
+    function disconnect() {
+        try {
+            localStorage.removeItem("name")
+        }
+        catch {
+        }
+        location.reload();
+    }
+
+    function try_conn_if_local_is_set() {
+        try {
+            if (localStorage != null && localStorage['name'] != null) {
+                // debugger;
+                document.getElementById("name").value = localStorage["name"];
+                document.getElementById("connect").click();
+            }
+        }
+        catch {
+            disconnect()
+        }
+    }
+
+    function set_name_to_local(name) {
+        if (localStorage != null) {
+            localStorage["name"] = name
+        }
+    }
+
+    // boot init connect
+    try_conn_if_local_is_set();
 
     const messageLog = document.getElementById("message-log")
     const messageInput = document.getElementById("message-input")
@@ -262,6 +307,18 @@
                     console.log("ontrack")
                     document.getElementById("remoteVideo").srcObject = event.streams[0];
                     //document.getElementById("hangup-button").disabled = false;
+
+                    function foo() {
+                        // check and play vid if paused
+                        vd = document.getElementById("remoteVideo")
+                        if (vd != undefined && vd.srcObject != undefined) {
+                            if (vd.paused) {
+                                vd.play()
+                            }
+                            setTimeout(foo, 3000);
+                        }
+                    }
+                    foo();
                 },
                 onnegotiationneeded: (toId, event, localConn) => {
                     // debugger;
@@ -288,8 +345,10 @@
                     // debugger;
                     console.log('oniceconnectionstatechange', localConn.iceConnectionState)
                     switch (localConn.iceConnectionState) {
+                        case "disconnected":
+                            location.reload();
                         case "closed":
-                        //console.log("oniceconnectionstatechange - closed")
+                            location.reload();
                         case "failed":
                             //console.log("oniceconnectionstatechange - failed")
                             //closeVideoCall();
@@ -324,7 +383,7 @@
 
     createAndSetDataChannelCallbacks = (id, current, localConn) => {
         return;
-        
+
         sendChannel = current.sendChannel = current.localConn.createDataChannel('sendDataChannel');
 
         sendChannel.onopen = onSendChannelStateChange;
@@ -453,7 +512,7 @@
         each: {},
         chat: false,
         call: (id, name, chat) => {
-            if(chat == null) {
+            if (chat == null) {
                 chat = false;
             }
             signals.chat = chat;
@@ -462,10 +521,14 @@
                 return;
             }
 
+            var listElement = document.getElementById("availableCameras");
+            if(listElement.selectedOptions.length == 0){
+                appendLog("No Camera is selected or available", true);
+                return;
+            }
+
             localConn = createRTCPeer()
 
-            var listElement = document.getElementById("availableCameras");
-            var option = listElement.selectedOptions[0];
             var cameraId = option.value;
             if (cameraId != "DEFAULT") {
                 devices.openCamera(cameraId, 480, 480).then(localStream => {
@@ -475,7 +538,7 @@
             }
 
             current = signals.each[id] = getCurrent(id, localConn, getNameFromId(id));
-            
+
             setConnCallbacks(id, current, localConn);
 
             createAndSetDataChannelCallbacks(id, current, localConn)
@@ -542,8 +605,8 @@
 
         handleNewICECandidateMsg: (id, msg, handle_failed) => {
             console.log(`handleNewICECandidateMsg from ${getNameFromId(id)}`)
-            if (signals.each[id] == null 
-                || signals.each[id].localConn == null 
+            if (signals.each[id] == null
+                || signals.each[id].localConn == null
                 || signals.each[id].localConn.remoteDescription == null
                 || !signals.each[id].localConn.remoteDescription.type) {
                 console.log("pushing ice candidate to backup for ice candidate")
@@ -606,11 +669,11 @@
             var candidate = new RTCIceCandidate(msg.candidate);
             // debugger;
             localConn.addIceCandidate(candidate)
-                .catch((error, e2) => { 
+                .catch((error, e2) => {
                     // debugger; 
-                    console.log(id, msg, candidate); 
-                    console.log("failed to add ice candidate", error, e2); 
-                    handle_failed(msg) 
+                    console.log(id, msg, candidate);
+                    console.log("failed to add ice candidate", error, e2);
+                    handle_failed(msg)
                 });
         },
 
@@ -668,7 +731,7 @@
                         devices.updateCameraList(cameras);
                     } else {
                         errorElement = document.querySelector("#error")
-                        if (errorElement != null){
+                        if (errorElement != null) {
                             errorElement.hidden = false;
                         }
                     }
