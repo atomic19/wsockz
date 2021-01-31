@@ -307,18 +307,6 @@
                     console.log("ontrack")
                     document.getElementById("remoteVideo").srcObject = event.streams[0];
                     //document.getElementById("hangup-button").disabled = false;
-
-                    function foo() {
-                        // check and play vid if paused
-                        vd = document.getElementById("remoteVideo")
-                        if (vd != undefined && vd.srcObject != undefined) {
-                            if (vd.paused) {
-                                vd.play()
-                            }
-                            setTimeout(foo, 3000);
-                        }
-                    }
-                    foo();
                 },
                 onnegotiationneeded: (toId, event, localConn) => {
                     // debugger;
