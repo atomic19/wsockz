@@ -529,6 +529,7 @@
 
             localConn = createRTCPeer()
 
+            var option = listElement.selectedOptions[0];
             var cameraId = option.value;
             if (cameraId != "DEFAULT") {
                 devices.openCamera(cameraId, 480, 480).then(localStream => {
