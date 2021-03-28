@@ -345,9 +345,9 @@
                     console.log('oniceconnectionstatechange', localConn.iceConnectionState)
                     switch (localConn.iceConnectionState) {
                         case "disconnected":
-                            resetStreamsAndReload();
+                            break; // resetStreamsAndReload();
                         case "closed":
-                            resetStreamsAndReload();
+                            break;  // resetStreamsAndReload();
                         case "failed":
                             //console.log("oniceconnectionstatechange - failed")
                             //closeVideoCall();
@@ -437,7 +437,13 @@
     }
 
     createRTCPeer = () => {
-        const servers = { 'iceServers': [{ 'urls': 'turn:gg.f64.dev:3478', 'username': 'username', 'credential': 'password' }] }; // null; { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
+        const servers = { 'iceServers': [
+            { 
+                'urls': ['turns:gg.f64.dev:5349', 'turn:gg.f64.dev:5349', 'turns:gg.f64.dev', 'stun:gg.f64.dev:5349'],
+                'username': 'user1', 
+                'credential': 'ass1' 
+            }
+        ] }; // null; { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] }
         const localConn = new RTCPeerConnection(servers);
         return localConn
     }
