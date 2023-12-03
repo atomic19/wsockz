@@ -177,6 +177,7 @@
 
     const getListNoTimer = async () => {
         const resp = await fetch("/list", { method: "GET" })
+        const currentRnd = document.getElementById("rndID").value;
         if (resp.status != 200) {
             throw new Error(`failed to get response ${resp.status} ${resp.message}`)
         }
@@ -189,7 +190,10 @@
             <label class="form-label">${online[item].Name}</label>
             <button class="btn btn-outline-warning" style="float: right" id="callAudBtn" value="${item}">call</button>
             </div>`;
-            htmlDivs.push(e1)
+
+            if (item != currentRnd) {
+                htmlDivs.push(e1)
+            }
         });
 
 
